@@ -1,10 +1,8 @@
-
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import Header from "@/components/Header";
 import IngredientInput from "@/components/IngredientInput";
 import RecipeResults from "@/components/RecipeResults";
 import RecipeModal from "@/components/RecipeModal";
-import ApiKeyInput from "@/components/ApiKeyInput";
 import { toast } from "@/hooks/use-toast";
 
 interface Recipe {
@@ -27,52 +25,32 @@ interface Recipe {
 }
 
 const Index = () => {
-  const [spoonacularApiKey, setSpoonacularApiKey] = useState("");
-  const [googleAiApiKey, setGoogleAiApiKey] = useState("");
+  const spoonacularApiKey = import.meta.env.VITE_SPOONACULAR_API_KEY;
+  const googleAiApiKey = import.meta.env.VITE_GOOGLE_AI_API_KEY;
   const [recipes, setRecipes] = useState<Recipe[]>([]);
   const [selectedRecipe, setSelectedRecipe] = useState<Recipe | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
 
-  useEffect(() => {
-    // Load API keys from localStorage
-    const savedSpoonacularKey = localStorage.getItem("spoonacular_api_key");
-    const savedGoogleAiKey = localStorage.getItem("google_ai_api_key");
-    
-    if (savedSpoonacularKey && savedGoogleAiKey) {
-      setSpoonacularApiKey(savedSpoonacularKey);
-      setGoogleAiApiKey(savedGoogleAiKey);
-      console.log("API keys loaded from localStorage");
-    }
-  }, []);
-
-  const handleApiKeysSet = (spoonacularKey: string, googleAiKey: string) => {
-    setSpoonacularApiKey(spoonacularKey);
-    setGoogleAiApiKey(googleAiKey);
-    
-    // Save to localStorage
-    localStorage.setItem("spoonacular_api_key", spoonacularKey);
-    localStorage.setItem("google_ai_api_key", googleAiKey);
-    
-    toast({
-      title: "API configurate con successo!",
-      description: "Ora puoi iniziare a cercare ricette.",
-    });
-  };
-
-  const enhanceIngredientsWithAI = async (ingredients: string): Promise<string> => {
+  const enhanceIngredientsWithAI = async (
+    ingredients: string
+  ): Promise<string> => {
     try {
       console.log("Enhancing ingredients with Google AI:", ingredients);
-      
-      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=${googleAiApiKey}`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          contents: [{
-            parts: [{
-              text: `Analizza questi ingredienti per una ricerca di ricette: "${ingredients}". 
+
+      const response = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=${googleAiApiKey}`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            contents: [
+              {
+                parts: [
+                  {
+                    text: `Analizza questi ingredienti per una ricerca di ricette: "${ingredients}". 
               Restituisci SOLO una lista di ingredienti separati da virgole, ottimizzata per la ricerca.
               Esempi di ottimizzazione:
               - "pollo" diventa "chicken"
@@ -81,23 +59,27 @@ const Index = () => {
               - "aglio" diventa "garlic"
               
               Traduci in inglese quando necessario e mantieni i nomi semplici e chiari.
-              Risposta (solo ingredienti separati da virgole):`
-            }]
-          }],
-          generationConfig: {
-            maxOutputTokens: 200,
-            temperature: 0.3,
-          },
-        }),
-      });
+              Risposta (solo ingredienti separati da virgole):`,
+                  },
+                ],
+              },
+            ],
+            generationConfig: {
+              maxOutputTokens: 200,
+              temperature: 0.3,
+            },
+          }),
+        }
+      );
 
       if (!response.ok) {
         throw new Error(`Google AI API error: ${response.status}`);
       }
 
       const data = await response.json();
-      const enhancedIngredients = data.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || ingredients;
-      
+      const enhancedIngredients =
+        data.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || ingredients;
+
       console.log("Enhanced ingredients:", enhancedIngredients);
       return enhancedIngredients;
     } catch (error) {
@@ -130,58 +112,38 @@ const Index = () => {
     console.log("Starting recipe search with ingredients:", ingredients);
 
     try {
-      // Enhance ingredients with Google AI
+      // First, enhance ingredients with AI
       const enhancedIngredients = await enhanceIngredientsWithAI(ingredients);
-      
+      console.log("Enhanced ingredients for search:", enhancedIngredients);
+
+      // Then search recipes with Spoonacular
       const response = await fetch(
-        `https://api.spoonacular.com/recipes/findByIngredients?ingredients=${encodeURIComponent(enhancedIngredients)}&number=12&ignorePantry=false&ranking=2&apiKey=${spoonacularApiKey}`
+        `https://api.spoonacular.com/recipes/findByIngredients?ingredients=${encodeURIComponent(
+          enhancedIngredients
+        )}&number=10&apiKey=${spoonacularApiKey}`
       );
 
       if (!response.ok) {
-        if (response.status === 402) {
-          throw new Error("Limite API raggiunto. Verifica il tuo piano Spoonacular.");
-        }
-        throw new Error(`Errore API Spoonacular: ${response.status}`);
+        throw new Error(`Spoonacular API error: ${response.status}`);
       }
 
       const data = await response.json();
       console.log("Recipes found:", data);
-
-      if (data && Array.isArray(data)) {
-        setRecipes(data);
-        
-        if (data.length === 0) {
-          toast({
-            title: "Nessuna ricetta trovata",
-            description: "Prova con ingredienti diversi o più comuni.",
-          });
-        } else {
-          toast({
-            title: "Ricette trovate!",
-            description: `Abbiamo trovato ${data.length} ricette per i tuoi ingredienti.`,
-          });
-        }
-      } else {
-        throw new Error("Formato risposta API non valido");
-      }
+      setRecipes(data);
     } catch (error) {
       console.error("Error searching recipes:", error);
-      const errorMessage = error instanceof Error ? error.message : "Errore durante la ricerca delle ricette";
-      
       toast({
         title: "Errore nella ricerca",
-        description: errorMessage,
+        description:
+          "Si è verificato un errore durante la ricerca delle ricette. Riprova più tardi.",
         variant: "destructive",
       });
-      
-      setRecipes([]);
     } finally {
       setIsLoading(false);
     }
   };
 
   const handleRecipeClick = (recipe: Recipe) => {
-    console.log("Opening recipe modal for:", recipe.title);
     setSelectedRecipe(recipe);
     setIsModalOpen(true);
   };
@@ -191,18 +153,37 @@ const Index = () => {
     setSelectedRecipe(null);
   };
 
-  // Show API key input if keys are not set
+  // Check if API keys are available
   if (!spoonacularApiKey || !googleAiApiKey) {
-    return <ApiKeyInput onApiKeysSet={handleApiKeysSet} />;
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-orange-50 to-green-50 flex items-center justify-center p-4">
+        <div className="bg-white rounded-lg shadow-lg p-8 max-w-md w-full text-center">
+          <h2 className="text-2xl font-semibold text-red-600 mb-4">
+            Errore di Configurazione
+          </h2>
+          <p className="text-gray-600 mb-4">
+            Le chiavi API non sono configurate correttamente. Assicurati di aver
+            impostato le variabili d'ambiente:
+          </p>
+          <ul className="text-left text-sm text-gray-500 space-y-2 mb-6">
+            <li>• VITE_SPOONACULAR_API_KEY</li>
+            <li>• VITE_GOOGLE_AI_API_KEY</li>
+          </ul>
+          <p className="text-sm text-gray-500">
+            Controlla il file .env nella root del progetto.
+          </p>
+        </div>
+      </div>
+    );
   }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-orange-50 via-white to-green-50">
       <Header />
-      
+
       <main className="container mx-auto px-4 py-8">
         <IngredientInput onSearch={searchRecipes} isLoading={isLoading} />
-        
+
         {recipes.length > 0 && (
           <RecipeResults recipes={recipes} onRecipeClick={handleRecipeClick} />
         )}
@@ -222,7 +203,8 @@ const Index = () => {
             Powered by Google AI Studio & Spoonacular API
           </p>
           <p className="text-sm text-gray-500 mt-2">
-            🍳 Trasforma i tuoi ingredienti in deliziose ricette con l'intelligenza artificiale
+            🍳 Trasforma i tuoi ingredienti in deliziose ricette con
+            l'intelligenza artificiale
           </p>
         </div>
       </footer>
