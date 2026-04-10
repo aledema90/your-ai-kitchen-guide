@@ -2,7 +2,8 @@
 
 Turn a list of ingredients into recipe ideas using AI-assisted ingredient normalization and the Spoonacular recipe API.
 
-<img width="2553" height="1201" alt="image" src="https://github.com/user-attachments/assets/a31226c4-c0f6-4701-97d4-97bcdcd8e92c" />
+<img width="2531" height="827" alt="image" src="https://github.com/user-attachments/assets/82b5767e-789e-4a88-8b2d-8500c725fab8" />
+
 
 
 ## Features
