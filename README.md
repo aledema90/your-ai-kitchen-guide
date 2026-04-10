@@ -14,8 +14,6 @@ Turn a list of ingredients into recipe ideas using AI-assisted ingredient normal
 
 - React 18 + TypeScript
 - Vite
-- Tailwind CSS
-- shadcn/ui + Radix UI
 - React Router
 - TanStack Query (provider configured)
 
@@ -32,8 +30,10 @@ Turn a list of ingredients into recipe ideas using AI-assisted ingredient normal
 npm install
 ```
 
-### 3) Configure environment variables
+## Environment variables
 
+Create a `.env` file in the project root using the template in `.env.example`.
+Never commit `.env` files or API keys to GitHub.
 Create a `.env` file in the project root:
 
 ```bash
@@ -42,6 +42,7 @@ VITE_GOOGLE_AI_API_KEY=your_google_ai_studio_key
 ```
 
 Notes:
+
 - Variables must start with `VITE_` to be available in the frontend.
 - Never commit real API keys to version control.
 
